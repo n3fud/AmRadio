@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CALLSIGN LOOKUP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;600;900&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:        #080c0f;
+    --panel:     #0d1318;
+    --border:    #1a2a1f;
+    --green:     #00ff7f;
+    --green-dim: #007a3d;
+    --amber:     #ffb800;
+    --red:       #ff3c3c;
+    --text:      #c8e6d0;
+    --muted:     #3d5a47;
+    --grid-color:#0f1e14;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 2rem 1rem 4rem;
+    overflow-x: hidden;
+  }
+
+  /* CRT scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* Radial glow bg */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(0,255,127,0.05), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .header-badge {
+    display: inline-block;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 300;
+    font-size: 0.7rem;
+    letter-spacing: 0.4em;
+    color: var(--green-dim);
+    border: 1px solid var(--green-dim);
+    padding: 0.25rem 1rem;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: clamp(3rem, 10vw, 6rem);
+    letter-spacing: 0.05em;
+    line-height: 0.9;
+    color: var(--green);
+    text-shadow:
+      0 0 20px rgba(0,255,127,0.5),
+      0 0 60px rgba(0,255,127,0.2);
+    text-transform: uppercase;
+  }
+
+  h1 span {
+    display: block;
+    font-size: 0.4em;
+    font-weight: 300;
+    letter-spacing: 0.6em;
+    color: var(--muted);
+    text-shadow: none;
+    margin-top: 0.5rem;
+  }
+
+  /* ── SEARCH PANEL ── */
+  .search-panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow:
+      0 0 0 1px var(--green-dim) inset,
+      0 0 40px rgba(0,255,127,0.05);
+  }
+
+  .search-panel::before {
+    content: 'CALLSIGN IDENTIFICATION TERMINAL';
+    position: absolute;
+    top: -0.65rem;
+    left: 1.5rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    color: var(--green-dim);
+    background: var(--panel);
+    padding: 0 0.5rem;
+  }
+
+  .input-row {
+    display: flex;
+    gap: 0;
+  }
+
+  #callsign-input {
+    flex: 1;
+    background: #040709;
+    border: 1px solid var(--green-dim);
+    border-right: none;
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.75rem 1rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  #callsign-input::placeholder {
+    color: var(--muted);
+    font-size: 0.9rem;
+    letter-spacing: 0.3em;
+  }
+
+  #callsign-input:focus {
+    border-color: var(--green);
+    box-shadow: 0 0 20px rgba(0,255,127,0.15);
+  }
+
+  #lookup-btn {
+    background: var(--green);
+    color: #000;
+    border: none;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0 1.5rem;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+    min-width: 100px;
+  }
+
+  #lookup-btn:hover {
+    background: #fff;
+    box-shadow: 0 0 20px rgba(0,255,127,0.5);
+  }
+
+  #lookup-btn:active { transform: scale(0.97); }
+
+  #lookup-btn:disabled {
+    background: var(--green-dim);
+    cursor: not-allowed;
+  }
+
+  .hint {
+    margin-top: 0.75rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+  }
+
+  /* ── STATUS BAR ── */
+  #status-bar {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding: 0 0.1rem;
+  }
+
+  .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green-dim);
+    margin-right: 0.5rem;
+    vertical-align: middle;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  /* ── RESULTS ── */
+  #result-area {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    transition: opacity 0.3s;
+  }
+
+  /* Loading */
+  .loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--green-dim);
+    letter-spacing: 0.3em;
+    font-size: 0.8rem;
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+
+  /* Error */
+  .error-panel {
+    border: 1px solid var(--red);
+    background: rgba(255,60,60,0.05);
+    padding: 1.25rem 1.5rem;
+    color: var(--red);
+    letter-spacing: 0.1em;
+    font-size: 0.85rem;
+  }
+
+  .error-panel::before {
+    content: '⚠ ERROR: ';
+    font-weight: bold;
+  }
+
+  /* Result card */
+  .result-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    box-shadow:
+      0 0 0 1px var(--green-dim) inset,
+      0 0 40px rgba(0,255,127,0.06);
+    animation: fadeIn 0.4s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-header {
+    background: rgba(0,255,127,0.07);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .card-callsign {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 2.5rem;
+    letter-spacing: 0.05em;
+    color: var(--green);
+    text-shadow: 0 0 20px rgba(0,255,127,0.4);
+  }
+
+  .card-status {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid currentColor;
+  }
+
+  .status-valid   { color: var(--green); border-color: var(--green-dim); }
+  .status-invalid { color: var(--red);   border-color: var(--red); }
+  .status-raw     { color: var(--amber); border-color: var(--amber); }
+
+  .card-fields {
+    padding: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem 2rem;
+  }
+
+  .field-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+  }
+
+  .field-value {
+    font-size: 0.95rem;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    word-break: break-word;
+  }
+
+  .field-value.highlight {
+    color: var(--amber);
+  }
+
+  /* Raw output */
+  .raw-output {
+    padding: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .raw-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  pre.raw-pre {
+    background: #040709;
+    border: 1px solid var(--border);
+    padding: 1rem;
+    font-size: 0.75rem;
+    color: var(--green-dim);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 300px;
+    overflow-y: auto;
+    line-height: 1.5;
+  }
+
+  /* Toggle raw */
+  .toggle-raw {
+    margin: 1rem 1.5rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+    text-transform: uppercase;
+    font-family: inherit;
+    padding: 0;
+    border-bottom: 1px dashed var(--muted);
+  }
+  .toggle-raw:hover { color: var(--green); border-color: var(--green); }
+
+  /* History */
+  #history-section {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 640px;
+    margin-top: 2.5rem;
+  }
+
+  .history-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .history-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .history-item {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    color: var(--green-dim);
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.6rem;
+    cursor: pointer;
+    background: none;
+    transition: all 0.15s;
+  }
+
+  .history-item:hover {
+    color: var(--green);
+    border-color: var(--green-dim);
+    background: rgba(0,255,127,0.05);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-badge">Amateur Radio Station Identification System</div>
+  <h1>CALLSIGN<span>lookup terminal</span></h1>
+</header>
+
+<div class="search-panel">
+  <div class="input-row">
+    <input
+      id="callsign-input"
+      type="text"
+      maxlength="12"
+      placeholder="ENTER CALLSIGN"
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <button id="lookup-btn">QUERY</button>
+  </div>
+  <p class="hint">// ENTER AMATEUR RADIO CALLSIGN — e.g. W1AW &nbsp;|&nbsp; VK2ABC &nbsp;|&nbsp; G3ZVW</p>
+</div>
+
+<div id="status-bar">
+  <span><span class="status-dot"></span>SYSTEM ONLINE — BACKEND: localhost:5000</span>
+  <span id="query-count">QUERIES: 0</span>
+</div>
+
+<div id="result-area"></div>
+
+<div id="history-section" style="display:none;">
+  <p class="history-label">// RECENT LOOKUPS</p>
+  <div class="history-list" id="history-list"></div>
+</div>
+
+<script>
+  const API_BASE = 'http://localhost:5000/api';  // ← change if Flask runs elsewhere
+  let queryCount = 0;
+  const history = [];
+
+  const input    = document.getElementById('callsign-input');
+  const btn      = document.getElementById('lookup-btn');
+  const results  = document.getElementById('result-area');
+  const qcEl     = document.getElementById('query-count');
+  const histSec  = document.getElementById('history-section');
+  const histList = document.getElementById('history-list');
+
+  // ── Submit on Enter
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLookup();
+  });
+  btn.addEventListener('click', doLookup);
+
+  // Auto-uppercase
+  input.addEventListener('input', () => {
+    const pos = input.selectionStart;
+    input.value = input.value.toUpperCase().replace(/[^A-Z0-9/]/g,'');
+    input.setSelectionRange(pos, pos);
+  });
+
+  async function doLookup() {
+    const cs = input.value.trim();
+    if (!cs) { shake(input); return; }
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    results.innerHTML = '<div class="loading">QUERYING BACKEND SYSTEM...</div>';
+
+    try {
+      const res  = await fetch(`${API_BASE}/lookup?callsign=${encodeURIComponent(cs)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Unknown server error.');
+      } else {
+        showResult(data);
+        addHistory(data.callsign || cs);
+        queryCount++;
+        qcEl.textContent = `QUERIES: ${queryCount}`;
+      }
+    } catch (err) {
+      showError(
+        `Cannot reach backend server at ${API_BASE}.\n` +
+        'Make sure app.py is running:  python app.py'
+      );
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'QUERY';
+    }
+  }
+
+  function showError(msg) {
+    results.innerHTML = `<div class="error-panel">${escHtml(msg)}</div>`;
+  }
+
+  function showResult(data) {
+    const p = data.parsed;
+    let html = '';
+
+    if (!p) {
+      html = `<div class="error-panel">No data returned for ${escHtml(data.callsign)}.</div>`;
+    } else {
+      const statusClass = p.status === 'VALID' ? 'status-valid' :
+                          p.status === 'RAW'   ? 'status-raw'   : 'status-invalid';
+
+      html = `
+      <div class="result-card">
+        <div class="card-header">
+          <span class="card-callsign">${escHtml(p.callsign || data.callsign)}</span>
+          <span class="card-status ${statusClass}">${p.status}</span>
+        </div>`;
+
+      if (p.status === 'VALID') {
+        html += `
+        <div class="card-fields">
+          ${field('OPERATOR NAME',    p.name)}
+          ${field('LICENSE CLASS',    p.license_class, true)}
+          ${field('GRANT DATE',       p.grant_date)}
+          ${field('EXPIRY DATE',      p.expiry_date)}
+          ${field('ADDRESS',          p.address)}
+          ${field('GRID SQUARE',      p.grid_square, true)}
+          ${field('LATITUDE',         p.latitude)}
+          ${field('LONGITUDE',        p.longitude)}
+        </div>`;
+      } else if (p.status === 'RAW') {
+        html += `
+        <div class="raw-output">
+          <p class="raw-label">// RAW CLI OUTPUT</p>
+          <pre class="raw-pre">${escHtml(p.raw || '')}</pre>
+        </div>`;
+      } else {
+        html += `
+        <div class="card-fields">
+          ${field('RESULT', 'No valid record found for this callsign.')}
+        </div>`;
+      }
+
+      // Always show raw toggle
+      html += `
+        <button class="toggle-raw" onclick="toggleRaw(this)">SHOW RAW DATA</button>
+        <div class="raw-output" id="raw-block" style="display:none;">
+          <p class="raw-label">// RAW CLI OUTPUT</p>
+          <pre class="raw-pre">${escHtml(data.stdout || '(empty)')}</pre>
+        </div>
+      </div>`;
+    }
+
+    results.innerHTML = html;
+  }
+
+  function field(label, val, highlight = false) {
+    return `
+    <div>
+      <p class="field-label">${label}</p>
+      <p class="field-value ${highlight ? 'highlight' : ''}">${escHtml(val || '—')}</p>
+    </div>`;
+  }
+
+  function toggleRaw(btn) {
+    const blk = document.getElementById('raw-block');
+    const vis = blk.style.display === 'none';
+    blk.style.display = vis ? 'block' : 'none';
+    btn.textContent = vis ? 'HIDE RAW DATA' : 'SHOW RAW DATA';
+  }
+
+  function addHistory(cs) {
+    if (!history.includes(cs)) {
+      history.unshift(cs);
+      if (history.length > 10) history.pop();
+    }
+    histList.innerHTML = history
+      .map(c => `<button class="history-item" onclick="recall('${c}')">${c}</button>`)
+      .join('');
+    histSec.style.display = 'block';
+  }
+
+  function recall(cs) {
+    input.value = cs;
+    doLookup();
+  }
+
+  function shake(el) {
+    el.style.animation = 'none';
+    el.offsetHeight;
+    el.style.animation = 'shake 0.3s ease';
+    setTimeout(() => el.style.animation = '', 400);
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Shake animation
+  const style = document.createElement('style');
+  style.textContent = `@keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)}
+    40%{transform:translateX(6px)} 60%{transform:translateX(-4px)}
+    80%{transform:translateX(4px)} }`;
+  document.head.appendChild(style);
+</script>
+</body>
+</html>
